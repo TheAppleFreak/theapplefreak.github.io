@@ -1,0 +1,245 @@
+<html color-mode="user">
+  <head>
+    <title>Tuya to ESPHome Conversions • TheAppleFreak</title>
+    <link rel="stylesheet" href="https://unpkg.com/mvp.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body>
+    <header>
+      <h1>Tuya to ESPHome Conversions</h1>
+    </header>
+    <main>
+      <p>Figured I'd put the ESPHome configs that I've used for converting some of those really cheap Tuya IR blasters from Aliexpress into ones that work via ESPHome.</p>
+      <section id="s06">
+        <h2>
+          <a href="https://www.aliexpress.us/item/3256806718339573.html">S06 IR Remote (square, micro USB)</a>
+        </h2>
+        <p>The first remote that I got. It's a square blaster, with four IR LEDs, a button on the underside, and a single status LED. Internally, <a href="https://docs.libretiny.eu/boards/cb3s">it uses the CB3S WiFi module</a>.</p>
+        <p>This was vulnerable to <a href="https://github.com/tuya-cloudcutter/tuya-cloudcutter/">Tuya Cloudcutter</a> using the 2.1.5 Avatto S06 Pro preset. this probably would work with the generic Tuya IR device preset as well.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Function</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>GPIO26</td>
+              <td>Transmitter IR LEDs</td>
+              <td>You need to manually specify the carrier frequency, which for me is about 38 KHz</td>
+            </tr>
+            <tr>
+              <td>GPIO7</td>
+              <td>IR Receiver</td>
+              <td>Needs to be inverted in software</td>
+            </tr>
+            <tr>
+              <td>GPIO6</td>
+              <td>Button</td>
+              <td>Needs to be inverted in software</td>
+            </tr>
+            <tr>
+              <td>GPIO8</td>
+              <td>Blue Status LED</td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
+        <summary>
+          <details>ESPHome Configuration</details>
+          <pre>
+			<code>esphome:
+  name: rename_me
+  friendly_name: S06 IR Blaster
+
+bk72xx:
+  board: cb3s
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "xxxxxxx"
+  services:
+    - service: send_raw_command
+      variables:
+        command: int[]
+      then:
+        - remote_transmitter.transmit_raw:
+            code: !lambda "return command;"
+            carrier_frequency: !lambda "return 38029.0;"
+    - service: send_pronto_command
+      variables:
+        command: string
+      then:
+        - remote_transmitter.transmit_pronto: 
+            data: !lambda "return command;"
+
+ota:
+  - platform: esphome
+    password: "xxxxxxx"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "idk this is default"
+    password: "xxxxx"
+
+captive_portal:
+    
+light:
+  - platform: status_led
+    name: "Status LED"
+    pin: GPIO8
+    id: statusled
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO6
+    name: "Button"
+    filters: 
+      - invert:
+
+remote_transmitter:
+  pin: GPIO26
+  carrier_duty_percent: 50%
+  on_transmit:
+    then:
+      - light.toggle: statusled
+  on_complete:
+    then:
+      - light.toggle: statusled
+
+remote_receiver:
+  pin: 
+    number: GPIO7
+    inverted: true
+            </code>
+	      </pre>
+        </summary>
+      </section>
+      <section id="irc03">
+        <h2>
+          <a href="https://www.aliexpress.us/item/3256806596553884.html">IRC03 IR Remote (round, USB-C)</a>
+        </h2>
+        <p>The second remote that I got. It's a round blaster, with six IR LEDs arranged circularly, a button on the underside, what appears to be an always-on blue power LED, and a red status LED right next to it. Internally, <a href="https://docs.libretiny.eu/boards/generic-bk7231n-qfn32-tuya/">it uses a generic Beken BK7231N chip integrated into the main PCB</a>. </p>
+        <p>As with the S06, this was vulnerable to <a href="https://github.com/tuya-cloudcutter/tuya-cloudcutter/">Tuya Cloudcutter</a> using the generic Tuya IR Blaster preset. </p>
+        <table>
+          <thead>
+            <tr>
+              <th>Pin</th>
+              <th>Function</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>GPIO7</td>
+              <td>Transmitter IR LEDs</td>
+              <td>You need to manually specify the carrier frequency, which for me is about 38 KHz</td>
+            </tr>
+            <tr>
+              <td>GPIO8</td>
+              <td>IR Receiver</td>
+              <td>Needs to be inverted in software</td>
+            </tr>
+            <tr>
+              <td>GPIO9</td>
+              <td>Button</td>
+              <td>Needs to be inverted in software</td>
+            </tr>
+            <tr>
+              <td>GPIO24</td>
+              <td>Red Status LED</td>
+              <td>A bit hard to see when on</td>
+            </tr>
+          </tbody>
+        </table>
+        <summary>
+          <details>ESPHome Configuration</details>
+          <pre>
+			<code>esphome:
+  name: rename_me
+  friendly_name: Tuya Round IR Blaster
+
+bk72xx:
+  board: generic-bk7231n-qfn32-tuya
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "xxxxxx"
+  services:
+    - service: send_raw_command
+      variables:
+        command: int[]
+      then:
+        - remote_transmitter.transmit_raw:
+            code: !lambda "return command;"
+            carrier_frequency: !lambda "return 38029.0;"
+    - service: send_pronto_command
+      variables:
+        command: string
+      then:
+        - remote_transmitter.transmit_pronto: 
+            data: !lambda "return command;"
+
+ota:
+  - platform: esphome
+    password: "xxxxxx"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Tuya-Round-Ir-Blaster"
+    password: "xxxxxx"
+
+captive_portal:
+    
+light:
+  - platform: status_led
+    name: "Status LED"
+    pin: GPIO24
+    id: statusled
+
+binary_sensor:
+  - platform: gpio
+    pin: GPIO9
+    name: "Button"
+    filters: 
+      - invert:
+
+remote_transmitter:
+  pin: GPIO7
+  carrier_duty_percent: 50%
+  on_transmit:
+    then:
+      - light.toggle: statusled
+  on_complete:
+    then:
+      - light.toggle: statusled
+
+remote_receiver:
+  pin: 
+    number: GPIO8
+    inverted: true
+            </code>
+		  </pre>
+        </summary>
+      </section>
+    </main>
+  </body>
+</html>
